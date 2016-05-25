@@ -6,9 +6,16 @@ import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.IOException;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
@@ -19,10 +26,21 @@ public class MainActivity extends AppCompatActivity {
 
     public static final String TAG = MainActivity.class.getSimpleName();
 
+    public CurrentWeather mCurrentWeather;
+
+    @BindView(R.id.timeLabel) TextView mTimeLabel;
+    @BindView(R.id.temperatureLabel) TextView mTemperatureLabel;
+    @BindView(R.id.humidityValue) TextView mHumidityValue;
+    @BindView(R.id.precipValue) TextView mPrecipValue;
+    @BindView(R.id.summaryTextView) TextView mSummaryLabel;
+    @BindView(R.id.iconImageView) ImageView mIconImageView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        // Import view variables
+        ButterKnife.bind(this);
 
         // Compose the Forecast IO url into separate variables
         String apiKey = "4d0e45683b7534f37310e7e716272643";
@@ -49,17 +67,22 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
                     try {
-                        Log.v(TAG, response.body().string());
+                        String jsonData = response.body().string();
+                        Log.v(TAG,jsonData);
                         if (response.isSuccessful()) {
-
+                            //If response is good, get current weather from json
+                            mCurrentWeather = getCurrentDetails(jsonData);
                         } else {
                             // Dialog text appear if there is an issue with connecting to the service
                             alertUserAboutError("Sorry!", "There was an error");
                         }
-                    } catch (IOException e) {
+                    }
+                    catch (IOException e) {
                         Log.e(TAG, "Exception caught: ", e);
                     }
-
+                    catch (JSONException e) {
+                        Log.e(TAG, "Exception caught: ", e);
+                    }
                 }
             });
         }
@@ -68,6 +91,29 @@ public class MainActivity extends AppCompatActivity {
                     "network connectivity or signal.");
         }
 
+    }
+
+    private CurrentWeather getCurrentDetails(String jsonData) throws JSONException {
+        // New JSON object named forecast that takes the jsonData as parameter
+        JSONObject forecast = new JSONObject(jsonData);
+        // Set variables from the JSON key value
+        String timezone = forecast.getString("timezone");
+        Log.i(TAG, "From JSON object " + timezone);
+
+        JSONObject currently = forecast.getJSONObject("currently");
+
+        CurrentWeather currentWeather = new CurrentWeather();
+        currentWeather.setHumidity(currently.getDouble("humidity"));
+        currentWeather.setTime(currently.getLong("time"));
+        currentWeather.setIcon(currently.getString("icon"));
+        currentWeather.setPrecipChance(currently.getDouble("precipProbability"));
+        currentWeather.setSummary(currently.getString("summary"));
+        currentWeather.setTemperature(currently.getDouble("temperature"));
+        currentWeather.setTimeZone(timezone);
+
+        Log.d(TAG, currentWeather.getFormattedTime());
+
+        return currentWeather;
     }
 
     private boolean isNetworkAvailable() {
